@@ -1,0 +1,120 @@
+sub genFilterTree(filter_fld,tree_name)
+	
+	v.ui.filter.selected = rgb(184,239,201);
+	v.ui.filter.possible = white();
+	v.ui.filter.excluded = rgb(240,240,240);
+	
+	[$(tree_name)IndexMap]:
+	Mapping Load
+	[$(filter_fld)],rowno() as [$(filter_fld).Index];
+	Load FieldValue('$(filter_fld)',recno()) as [$(filter_fld)]
+	AutoGenerate FieldValueCount('$(filter_fld)');
+	
+	For i = 1 to (FieldValueCount('$(filter_fld)'))
+		Trace FieldValue('$(filter_fld)',$(i));
+		vTempField = FieldValue('$(filter_fld)',$(i));
+		
+		Temp_Vals:
+		Load FieldValue('$(vTempField)',recno()) as [$(vTempField)]
+		AutoGenerate FieldValueCount('$(vTempField)'); 
+		
+		PC:
+		Load
+		'$(vTempField)' as DimParent,
+		[$(vTempField)] as DimChild
+		Resident Temp_Vals
+		Order by [$(vTempField)] ASC;
+		
+		Drop Table Temp_Vals;
+	
+	Next i
+	
+	
+	// Load all of the parents into a unique list
+	[$(tree_name)_Tree]:
+	Load distinct
+	DimParent as $(tree_name).Node,
+	'' as $(tree_name).NodeValue,
+	applymap('$(tree_name)IndexMap',DimParent)*1000 as $(tree_name).NodeIndex,
+	'<' & applymap('$(tree_name)IndexMap',DimParent)*1000 & '>' as $(tree_name).NodeIndexStr,
+	'P' as $(tree_name).NodeType,
+	dual('+',applymap('$(tree_name)IndexMap',DimParent)*1000) as $(tree_name).NodeToggle
+	Resident PC;
+	
+	Load
+		DimChild as $(tree_name).NodeValue,
+		'   ' & DimChild as $(tree_name).Node,
+		applymap('$(tree_name)IndexMap',DimParent)*1000 + rowno() as $(tree_name).NodeIndex,
+		'<' & (applymap('$(tree_name)IndexMap',DimParent)*1000 + rowno()) & '>' as $(tree_name).NodeIndexStr,
+		'C' as $(tree_name).NodeType,
+		dual('',applymap('$(tree_name)IndexMap',DimParent)*1000 + rowno()) as $(tree_name).NodeToggle
+	Resident PC;
+	
+	Left Join ([$(tree_name)_Tree])
+	Load
+	DimParent as $(tree_name).NodeParent,
+	DimChild as $(tree_name).NodeValue
+	Resident PC;
+	
+	Drop Table PC;
+	
+	// Get the list of parents
+	ParentTemp:
+	NoConcatenate
+	Load distinct
+	$(tree_name).NodeParent
+	Resident
+	[$(tree_name)_Tree]
+	where len($(tree_name).NodeParent)>0;
+	
+		// Create the set analysis variable for toggling
+	vToggleSA.$(tree_name)='';
+	
+	// loop through the parents to create the appropriate amount of toggle fields. build the toggle set analysis string based on each toggle field
+	vFilteredValues.$(tree_name) = '';
+	vPossibleValues.$(tree_name)='';
+	For i = 0 to (NoOfRows('ParentTemp')-1)
+		vParNode = peek('$(tree_name).NodeParent',$(i),'ParentTemp');
+	
+		Left join ([$(tree_name)_Tree])
+		Load
+		$(tree_name).NodeIndex,
+		if($(tree_name).NodeParent='$(vParNode)',0,1) as [$(tree_name).NodeToggle$(i)]
+		Resident [$(tree_name)_Tree];
+		
+		ParentToggleTemp:
+		Load
+		'$(vParNode)' as [$(tree_name).Node],
+		$(i) as [$(tree_name).NodeToggleNo]
+		AutoGenerate 1;
+		
+		vToggle.$(tree_name).$(i) = 0;
+		vToggleSA.$(tree_name) = vToggleSA.$(tree_name) & ',[$(tree_name).NodeToggle$(i)]={' & chr(39) & '>@(vToggle.$(tree_name).$(i))' & chr(39) & '}';
+		
+		// Load the values and indices connected to the actual data model
+		Load
+		$(tree_name).NodeValue as $(vParNode),
+		$(tree_name).NodeIndexStr as $(vParNode)IndexStr
+		Resident
+		[$(tree_name)_Tree]
+		where $(tree_name).NodeParent = '$(vParNode)';
+		
+		vFilteredValues.$(tree_name) = vFilteredValues.$(tree_name) & ' & if(GetSelectedCount([$(vParNode)])>0,concat(distinct [$(vParNode)IndexStr]))';
+		vPossibleValues.$(tree_name) = vPossibleValues.$(tree_name) & ' & if(GetSelectedCount([$(vParNode)])=0,concat(distinct [$(vParNode)IndexStr]))';
+		
+	Next i;
+	
+	vFilteredValues.$(tree_name) = '=' & mid(vFilteredValues.$(tree_name),3);
+	vPossibleValues.$(tree_name) = '=' & mid(vPossibleValues.$(tree_name),3);
+	
+	// insert $ expansion into the toggle set analysis string
+	vToggleSA.$(tree_name) = replace(mid(vToggleSA.$(tree_name),2),'@','$');
+	
+	// Join the toggle fields into the selection table and drop the temp tables
+	Left Join ([$(tree_name)_Tree])
+	Load * Resident ParentToggleTemp;
+	Drop Table ParentToggleTemp;
+	Drop Table ParentTemp;
+	
+	vFilterBackgroundColor.$(tree_name) ='if($(tree_name).NodeType=' & chr(39) & 'P' & chr(39) & ',white(),if(SubStringCount(vFilteredValues.$(tree_name),$(tree_name).NodeIndexStr),v.ui.filter.selected,if(SubStringCount(vPossibleValues.$(tree_name),$(tree_name).NodeIndexStr),v.ui.filter.possible,v.ui.filter.excluded)))';
+End Sub

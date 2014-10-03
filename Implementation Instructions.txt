@@ -1,0 +1,26 @@
+1) Create a field that contains the list of filter dimensions
+
+2) Call the genFilterTree subroutine to generate the necessary data and variables
+	a. The genFilterTree() sub takes two inputs: the name of the field containing the list of filters, and a name for the tree filter which will be used as a prefix and suffix when naming fields and variables
+
+3) Create the pivot table
+	a. the easiest way to do this is to copy the original and just update all of the references to reference your fields and variables. For example, the dimension _Filter.Node would become <YOUR TREE NAME>.Node
+	b. the items to change are:
+		- the 2 dimensions
+		- the expression
+		- the background colors for all dimensions and expressions
+
+
+4) Add the Toggle field action on <YOUR TREE NAME>.NodeToggle
+	Action 1: Set Variable
+		Variable:	='vToggle.<YOUR TREE NAME>.$(=<YOUR TREE NAME>.NodeToggleNo)'
+		Value: 		=not(vToggle.<YOUR TREE NAME>.$(=<YOUR TREE NAME>.NodeToggleNo))
+	Action 2: Clear Field
+		Field: 		<YOUR TREE NAME>.NodeToggle
+
+5) Add the field selection action on <YOUR TREE NAME>.Node
+	Action 1: Toggle Select
+		Field:		=<YOUR TREE NAME>.NodeParent
+		Value:		=<YOUR TREE NAME>.NodeValue
+	Action 2: Clear Field
+		Field:		<YOUR TREE NAME>.Node
