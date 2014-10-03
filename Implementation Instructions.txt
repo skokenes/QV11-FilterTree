@@ -4,7 +4,7 @@
 	a. The genFilterTree() sub takes two inputs: the name of the field containing the list of filters, and a name for the tree filter which will be used as a prefix and suffix when naming fields and variables
 
 3) Create the pivot table
-	a. the easiest way to do this is to copy the original and just update all of the references to reference your fields and variables. For example, the dimension _Filter.Node would become <YOUR TREE NAME>.Node
+	a. the easiest way to do this is to copy the object from the example file and just update all of the references to reference your fields and variables. For example, the dimension _Filter.Node would become <YOUR TREE NAME>.Node
 	b. the items to change are:
 		- the 2 dimensions
 		- the expression
